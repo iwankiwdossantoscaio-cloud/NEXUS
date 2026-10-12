@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nexus — IA + Notas</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --ink:#0f0e0c;
+  --paper:#faf8f4;
+  --cream:#f2efe8;
+  --stone:#e8e3d9;
+  --warm:#c8bfaa;
+  --muted:#9a9080;
+  --dim:#6b6358;
+  --accent:#2a6052;
+  --accent-light:#e8f0ee;
+  --gold:#c4933f;
+  --red:#c44040;
+  --surface:rgba(250,248,244,0.92);
+  --shadow:0 2px 24px rgba(15,14,12,0.08),0 1px 4px rgba(15,14,12,0.04);
+  --shadow-lg:0 8px 48px rgba(15,14,12,0.12),0 2px 8px rgba(15,14,12,0.06);
+}
+
+html,body{height:100%;background:var(--paper);color:var(--ink);font-family:'Geist',sans-serif;overflow:hidden}
+
+/* ── NOISE TEXTURE ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size:128px;
+}
+
+/* ══════════════════════════════
+   LOGIN
+══════════════════════════════ */
+#login-screen{
+  position:fixed;inset:0;z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--paper);
+  transition:opacity .5s ease,transform .5s ease;
+}
+#login-screen.out{opacity:0;transform:scale(.97);pointer-events:none}
+
+.login-wrap{
+  width:100%;max-width:400px;padding:0 24px;
+  animation:riseUp .7s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes riseUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+
+.login-brand{
+  text-align:center;margin-bottom:40px;
+}
+.login-brand .wordmark{
+  font-family:'Instrument Serif',serif;font-size:2.6rem;
+  color:var(--ink);letter-spacing:-.03em;line-height:1;
+}
+.login-brand .sub{
+  font-family:'Geist Mono',monospace;font-size:.65rem;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:6px;
+}
+
+.tabs{
+  display:flex;gap:0;margin-bottom:28px;
+  border-bottom:1.5px solid var(--stone);
+}
+.tab-btn{
+  flex:1;padding:10px;background:none;border:none;
+  font-family:'Geist',sans-serif;font-size:.82rem;font-weight:500;
+  color:var(--muted);cursor:pointer;transition:color .2s;
+  border-bottom:2px solid transparent;margin-bottom:-1.5px;
+}
+.tab-btn.active{color:var(--ink);border-bottom-color:var(--ink);}
+
+.form-panel{display:none}
+.form-panel.active{display:block;animation:fadeSlide .3s ease both}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.field{margin-bottom:16px}
+.field label{
+  display:block;font-size:.7rem;font-weight:500;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:6px;
+}
+.field input{
+  width:100%;padding:12px 14px;background:var(--cream);
+  border:1.5px solid var(--stone);border-radius:10px;
+  font-family:'Geist',sans-serif;font-size:.9rem;color:var(--ink);
+  outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.field input::placeholder{color:var(--warm)}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(42,96,82,.1)}
+
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:42px}
+.pw-eye{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  display:flex;padding:4px;transition:color .2s;
+}
+.pw-eye:hover{color:var(--ink)}
+.pw-eye svg{width:16px;height:16px;stroke:currentColor;fill:none}
+
+.strength{display:flex;gap:3px;margin-top:7px;height:2px}
+.strength span{flex:1;border-radius:2px;background:var(--stone);transition:background .3s}
+.strength.s1 span:nth-child(1){background:var(--red)}
+.strength.s2 span:nth-child(-n+2){background:var(--gold)}
+.strength.s3 span:nth-child(-n+3){background:var(--gold)}
+.strength.s4 span{background:var(--accent)}
+
+.notice{
+  font-size:.75rem;padding:10px 12px;border-radius:8px;margin-bottom:14px;display:none;
+  font-family:'Geist Mono',monospace;
+}
+.notice.err{background:rgba(196,64,64,.06);border:1px solid rgba(196,64,64,.2);color:var(--red);display:block}
+.notice.ok{background:var(--accent-light);border:1px solid rgba(42,96,82,.2);color:var(--accent);display:block}
+
+.check-line{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+.check-line input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;flex-shrink:0;cursor:pointer}
+.check-line label{font-size:.78rem;color:var(--dim);cursor:pointer}
+.check-line a{color:var(--accent);text-decoration:none}
+
+.btn-main{
+  width:100%;padding:13px;background:var(--ink);color:var(--paper);
+  border:none;border-radius:10px;font-family:'Geist',sans-serif;
+  font-size:.85rem;font-weight:500;cursor:pointer;
+  transition:background .2s,transform .15s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-main:hover{background:#2a2720}
+.btn-main:active{transform:scale(.98)}
+.btn-main:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+.divider-line{
+  text-align:center;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--warm);margin:20px 0;position:relative;
+}
+.divider-line::before,.divider-line::after{
+  content:'';position:absolute;top:50%;width:calc(50% - 28px);height:1px;background:var(--stone);
+}
+.divider-line::before{left:0}.divider-line::after{right:0}
+
+.login-foot{text-align:center;font-size:.72rem;color:var(--muted);margin-top:18px;font-family:'Geist Mono',monospace}
+.login-foot a{color:var(--accent);text-decoration:none;cursor:pointer}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:14px;height:14px;border:2px solid rgba(250,248,244,.3);border-top-color:var(--paper);border-radius:50%;animation:spin .7s linear infinite}
+
+
+/* ══════════════════════════════
+   MAIN APP
+══════════════════════════════ */
+#app{
+  position:fixed;inset:0;z-index:100;
+  display:flex;
+  opacity:0;pointer-events:none;transition:opacity .5s ease .15s;
+}
+#app.in{opacity:1;pointer-events:all}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:260px;flex-shrink:0;
+  background:var(--cream);
+  border-right:1px solid var(--stone);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  transition:width .3s ease;
+}
+.sidebar.collapsed{width:0;border-right:none}
+
+.sidebar-head{
+  padding:18px 16px 12px;
+  border-bottom:1px solid var(--stone);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sidebar-wordmark{
+  font-family:'Instrument Serif',serif;font-size:1.4rem;letter-spacing:-.02em;color:var(--ink);
+}
+.sidebar-tog{
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  display:flex;padding:4px;border-radius:6px;transition:all .2s;
+}
+.sidebar-tog:hover{background:var(--stone);color:var(--ink)}
+.sidebar-tog svg{width:18px;height:18px;stroke:currentColor;fill:none}
+
+.sidebar-user{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;border-bottom:1px solid var(--stone);
+}
+.user-avatar{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--ink);color:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:600;flex-shrink:0;
+}
+.user-name{font-size:.82rem;font-weight:500;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logout-btn{
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  display:flex;padding:4px;border-radius:5px;transition:all .2s;
+}
+.logout-btn:hover{color:var(--red);background:rgba(196,64,64,.06)}
+.logout-btn svg{width:15px;height:15px;stroke:currentColor;fill:none}
+
+.sidebar-nav{
+  padding:8px;display:flex;flex-direction:column;gap:2px;
+}
+.nav-btn{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:8px;
+  background:none;border:none;cursor:pointer;
+  font-family:'Geist',sans-serif;font-size:.83rem;color:var(--dim);
+  transition:all .2s;text-align:left;width:100%;
+}
+.nav-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;flex-shrink:0}
+.nav-btn:hover{background:var(--stone);color:var(--ink)}
+.nav-btn.active{background:var(--ink);color:var(--paper)}
+.nav-btn .badge{
+  margin-left:auto;background:var(--accent-light);color:var(--accent);
+  font-family:'Geist Mono',monospace;font-size:.6rem;
+  padding:2px 7px;border-radius:10px;font-weight:500;
+}
+.nav-btn.active .badge{background:rgba(250,248,244,.15);color:var(--paper)}
+
+/* Notes list in sidebar */
+.notes-section{
+  flex:1;overflow-y:auto;padding:8px;
+}
+.notes-section::-webkit-scrollbar{width:3px}
+.notes-section::-webkit-scrollbar-thumb{background:var(--stone);border-radius:3px}
+
+.notes-label{
+  font-family:'Geist Mono',monospace;font-size:.6rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--warm);padding:8px 10px 4px;
+}
+.note-item{
+  padding:9px 10px;border-radius:8px;cursor:pointer;
+  transition:all .2s;margin-bottom:2px;
+}
+.note-item:hover{background:var(--stone)}
+.note-item.active{background:rgba(42,96,82,.1);border:1px solid rgba(42,96,82,.15)}
+.note-item .note-title{font-size:.82rem;font-weight:500;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note-item .note-meta{font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:2px}
+
+.sidebar-footer{padding:8px}
+.new-note-btn{
+  width:100%;padding:9px;border:1.5px dashed var(--warm);
+  border-radius:8px;background:none;cursor:pointer;
+  font-family:'Geist',sans-serif;font-size:.8rem;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  transition:all .2s;
+}
+.new-note-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.new-note-btn svg{width:14px;height:14px;stroke:currentColor;fill:none}
+
+
+/* ── MAIN AREA ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* ── TOP BAR ── */
+.topbar{
+  height:52px;
+  display:flex;align-items:center;gap:10px;
+  padding:0 20px;
+  border-bottom:1px solid var(--stone);
+  background:var(--surface);
+  backdrop-filter:blur(12px);
+  flex-shrink:0;
+}
+.topbar-tog{
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  display:flex;padding:5px;border-radius:6px;transition:all .2s;
+}
+.topbar-tog:hover{background:var(--stone);color:var(--ink)}
+.topbar-tog svg{width:18px;height:18px;stroke:currentColor;fill:none}
+
+.topbar-title{
+  font-family:'Instrument Serif',serif;font-size:1.05rem;color:var(--ink);
+  flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.topbar-pill{
+  font-family:'Geist Mono',monospace;font-size:.6rem;letter-spacing:.1em;
+  text-transform:uppercase;padding:3px 10px;border-radius:20px;
+  background:var(--accent-light);color:var(--accent);border:1px solid rgba(42,96,82,.15);
+}
+
+/* ── VIEWS ── */
+.view{display:none;flex:1;overflow:hidden;flex-direction:column}
+.view.active{display:flex}
+
+/* ── CHAT VIEW ── */
+.chat-messages{
+  flex:1;overflow-y:auto;padding:28px 0;
+  display:flex;flex-direction:column;gap:0;
+}
+.chat-messages::-webkit-scrollbar{width:4px}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--stone);border-radius:4px}
+
+.chat-welcome{
+  text-align:center;padding:48px 32px 24px;
+  animation:riseUp .5s ease both;
+}
+.chat-welcome .greet{
+  font-family:'Instrument Serif',serif;font-size:2.2rem;
+  color:var(--ink);letter-spacing:-.02em;margin-bottom:8px;
+}
+.chat-welcome .sub{font-size:.88rem;color:var(--muted);line-height:1.6;max-width:360px;margin:0 auto 28px}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{
+  background:var(--cream);border:1px solid var(--stone);color:var(--dim);
+  padding:7px 16px;border-radius:20px;font-size:.78rem;cursor:pointer;
+  transition:all .2s;font-family:'Geist',sans-serif;
+}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+
+/* messages */
+.msg-row{
+  display:flex;gap:0;padding:2px 24px;
+  animation:riseUp .3s ease both;
+}
+.msg-row.user{justify-content:flex-end}
+
+.msg-bubble{
+  max-width:68%;padding:12px 16px;line-height:1.65;font-size:.9rem;
+  position:relative;
+}
+.msg-row.ai .msg-bubble{
+  background:transparent;color:var(--ink);border-radius:0 14px 14px 14px;
+  border-left:2px solid var(--stone);margin-left:8px;
+}
+.msg-row.user .msg-bubble{
+  background:var(--ink);color:var(--paper);border-radius:14px 14px 0 14px;
+  font-size:.88rem;
+}
+.msg-bubble code{
+  font-family:'Geist Mono',monospace;background:rgba(0,0,0,.06);
+  padding:1px 5px;border-radius:4px;font-size:.82rem;
+}
+.msg-row.user .msg-bubble code{background:rgba(255,255,255,.12)}
+.msg-bubble pre{
+  background:var(--cream);border:1px solid var(--stone);border-radius:8px;
+  padding:12px;overflow-x:auto;margin-top:10px;
+  font-family:'Geist Mono',monospace;font-size:.78rem;line-height:1.5;
+}
+.msg-bubble pre code{background:none;padding:0}
+.msg-bubble strong{font-weight:600}
+
+.msg-ai-label{
+  font-family:'Geist Mono',monospace;font-size:.6rem;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  margin-left:32px;padding:0 24px 2px;display:block;
+}
+
+/* save to notes btn */
+.save-btn{
+  display:inline-flex;align-items:center;gap:5px;margin-top:10px;
+  font-family:'Geist Mono',monospace;font-size:.62rem;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--stone);
+  padding:4px 9px;border-radius:6px;cursor:pointer;transition:all .2s;
+}
+.save-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.save-btn svg{width:11px;height:11px;stroke:currentColor;fill:none}
+
+/* typing */
+.typing-ind{display:flex;gap:4px;align-items:center;padding:14px 16px;margin-left:8px}
+.typing-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--warm);
+  animation:typeBounce 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2){animation-delay:.2s}.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes typeBounce{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-4px)}}
+
+/* err */
+.err-msg{
+  background:rgba(196,64,64,.05);border:1px solid rgba(196,64,64,.15);color:var(--red);
+  padding:10px 14px;border-radius:8px;font-family:'Geist Mono',monospace;font-size:.78rem;line-height:1.5;
+}
+
+/* chat input */
+.chat-input-area{
+  padding:14px 24px 20px;
+  border-top:1px solid var(--stone);
+  background:var(--surface);backdrop-filter:blur(12px);
+  flex-shrink:0;
+}
+.chat-input-wrap{
+  display:flex;gap:10px;align-items:flex-end;
+  background:var(--cream);border:1.5px solid var(--stone);
+  border-radius:14px;padding:10px 10px 10px 16px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.chat-input-wrap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(42,96,82,.08)}
+#chatInput{
+  flex:1;background:none;border:none;outline:none;
+  font-family:'Geist',sans-serif;font-size:.9rem;color:var(--ink);
+  resize:none;min-height:24px;max-height:120px;line-height:1.5;padding:2px 0;
+}
+#chatInput::placeholder{color:var(--warm)}
+.send-btn{
+  width:36px;height:36px;border-radius:9px;border:none;flex-shrink:0;
+  background:var(--ink);color:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .2s;
+}
+.send-btn:hover{background:var(--accent)}
+.send-btn:active{transform:scale(.95)}
+.send-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.send-btn svg{width:16px;height:16px}
+
+.input-hint{
+  font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--muted);
+  text-align:center;margin-top:8px;
+}
+
+/* ── NOTES VIEW ── */
+.notes-view{flex:1;overflow:hidden;display:flex}
+
+.notes-list-col{
+  width:260px;flex-shrink:0;border-right:1px solid var(--stone);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.notes-list-head{
+  padding:16px;border-bottom:1px solid var(--stone);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.notes-list-head h3{font-size:.9rem;font-weight:600;color:var(--ink)}
+.icon-btn{
+  background:none;border:1px solid var(--stone);border-radius:7px;
+  padding:5px;cursor:pointer;color:var(--muted);display:flex;
+  transition:all .2s;
+}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.icon-btn svg{width:14px;height:14px;stroke:currentColor;fill:none}
+
+.notes-scroll{flex:1;overflow-y:auto;padding:8px}
+.notes-scroll::-webkit-scrollbar{width:3px}
+.notes-scroll::-webkit-scrollbar-thumb{background:var(--stone);border-radius:3px}
+
+.note-card{
+  padding:12px;border-radius:9px;cursor:pointer;margin-bottom:4px;
+  border:1px solid transparent;transition:all .2s;
+}
+.note-card:hover{background:var(--cream);border-color:var(--stone)}
+.note-card.active{background:var(--accent-light);border-color:rgba(42,96,82,.2)}
+.note-card .nc-title{font-size:.85rem;font-weight:500;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.note-card .nc-preview{font-size:.75rem;color:var(--muted);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+.note-card .nc-date{
+  font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--warm);margin-top:5px;
+}
+
+.empty-notes{
+  text-align:center;padding:40px 20px;color:var(--muted);font-size:.82rem;
+}
+.empty-notes svg{width:32px;height:32px;stroke:var(--warm);fill:none;margin-bottom:12px}
+
+/* note editor */
+.note-editor{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.note-editor-head{
+  padding:16px 20px;border-bottom:1px solid var(--stone);
+  display:flex;align-items:center;gap:10px;
+}
+.note-title-input{
+  flex:1;background:none;border:none;outline:none;
+  font-family:'Instrument Serif',serif;font-size:1.3rem;color:var(--ink);
+}
+.note-title-input::placeholder{color:var(--stone)}
+.note-del-btn{
+  background:none;border:1px solid var(--stone);border-radius:7px;
+  padding:5px 10px;cursor:pointer;color:var(--muted);
+  font-family:'Geist',sans-serif;font-size:.75rem;
+  display:flex;align-items:center;gap:5px;transition:all .2s;
+}
+.note-del-btn:hover{border-color:var(--red);color:var(--red);background:rgba(196,64,64,.04)}
+.note-del-btn svg{width:13px;height:13px;stroke:currentColor;fill:none}
+
+.note-tags{
+  padding:8px 20px;border-bottom:1px solid var(--stone);
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+}
+.note-tag{
+  font-family:'Geist Mono',monospace;font-size:.62rem;
+  padding:3px 9px;border-radius:20px;
+  background:var(--stone);color:var(--dim);
+  display:flex;align-items:center;gap:4px;
+}
+.note-tag .rm{
+  cursor:pointer;color:var(--muted);line-height:1;font-size:.8rem;
+}
+.note-tag .rm:hover{color:var(--red)}
+.add-tag{
+  font-family:'Geist Mono',monospace;font-size:.62rem;
+  background:none;border:1px dashed var(--warm);border-radius:20px;
+  padding:3px 9px;color:var(--muted);cursor:pointer;transition:all .2s;
+  outline:none;
+}
+.add-tag:focus,.add-tag[data-active]{border-color:var(--accent);color:var(--accent)}
+
+.note-body{
+  flex:1;overflow-y:auto;padding:20px 24px;
+}
+.note-body::-webkit-scrollbar{width:4px}
+.note-body::-webkit-scrollbar-thumb{background:var(--stone);border-radius:4px}
+.note-content-area{
+  width:100%;min-height:300px;background:none;border:none;outline:none;resize:none;
+  font-family:'Geist',sans-serif;font-size:.93rem;color:var(--ink);
+  line-height:1.75;
+}
+.note-content-area::placeholder{color:var(--stone)}
+
+.note-footer{
+  padding:10px 20px;border-top:1px solid var(--stone);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.note-meta-info{font-family:'Geist Mono',monospace;font-size:.62rem;color:var(--muted)}
+.auto-save-ind{
+  font-family:'Geist Mono',monospace;font-size:.6rem;color:var(--accent);
+  display:flex;align-items:center;gap:5px;opacity:0;transition:opacity .3s;
+}
+.auto-save-ind.show{opacity:1}
+.auto-save-ind::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+.no-note-selected{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:.88rem;text-align:center;
+}
+.no-note-selected svg{width:40px;height:40px;stroke:var(--stone);fill:none;display:block;margin:0 auto 12px}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:24px;right:24px;z-index:500;
+  background:var(--ink);color:var(--paper);
+  padding:11px 18px;border-radius:10px;
+  font-family:'Geist Mono',monospace;font-size:.75rem;
+  box-shadow:var(--shadow-lg);
+  transform:translateY(20px);opacity:0;
+  transition:all .3s ease;pointer-events:none;
+  display:flex;align-items:center;gap:8px;
+}
+.toast.show{transform:none;opacity:1}
+.toast svg{width:14px;height:14px;stroke:currentColor;fill:none;flex-shrink:0}
+
+/* responsive */
+@media(max-width:700px){
+  .sidebar{position:absolute;left:0;top:0;bottom:0;z-index:50;box-shadow:var(--shadow-lg)}
+  .sidebar.collapsed{transform:translateX(-100%);width:260px}
+  .notes-list-col{width:100%;border-right:none}
+  .note-editor{display:none}
+  .notes-view.note-open .notes-list-col{display:none}
+  .notes-view.note-open .note-editor{display:flex}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="wordmark">Nexus</div>
+      <div class="sub">IA · Notas · Memória</div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('signin')">Entrar</button>
+      <button class="tab-btn" onclick="switchTab('signup')">Criar conta</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <div class="form-panel active" id="panel-signin">
+      <div class="notice" id="signin-notice"></div>
+      <div class="field">
+        <label>E-mail</label>
+        <input id="si-email" type="email" placeholder="seu@email.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <div class="pw-wrap">
+          <input id="si-pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+          <button class="pw-eye" onclick="togglePw('si-pass',this)">
+            <svg viewBox="0 0 24 24" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-main" id="signin-btn" onclick="doSignIn()">Entrar</button>
+      <div class="login-foot">Esqueceu? <a onclick="doReset()">Recuperar acesso</a></div>
+    </div>
+
+    <!-- SIGN UP -->
+    <div class="form-panel" id="panel-signup">
+      <div class="notice" id="signup-notice"></div>
+      <div class="field-row">
+        <div class="field">
+          <label>Nome</label>
+          <input id="su-first" type="text" placeholder="Ana" autocomplete="given-name"/>
+        </div>
+        <div class="field">
+          <label>Sobrenome</label>
+          <input id="su-last" type="text" placeholder="Silva" autocomplete="family-name"/>
+        </div>
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <input id="su-email" type="email" placeholder="seu@email.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <div class="pw-wrap">
+          <input id="su-pass" type="password" placeholder="Mín. 8 caracteres" oninput="checkPwStrength(this.value)" autocomplete="new-password"/>
+          <button class="pw-eye" onclick="togglePw('su-pass',this)">
+            <svg viewBox="0 0 24 24" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="strength" id="pw-strength"><span></span><span></span><span></span><span></span></div>
+      </div>
+      <div class="check-line">
+        <input type="checkbox" id="su-terms"/>
+        <label for="su-terms">Aceito os <a href="#">Termos de Uso</a></label>
+      </div>
+      <button class="btn-main" id="signup-btn" onclick="doSignUp()">Criar conta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <span class="sidebar-wordmark">Nexus</span>
+      <button class="sidebar-tog" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="av-init">?</div>
+      <span class="user-name" id="av-name">Usuário</span>
+      <button class="logout-btn" onclick="doLogout()" title="Sair">
+        <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-btn active" id="nav-chat" onclick="setView('chat')">
+        <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Chat com IA
+      </button>
+      <button class="nav-btn" id="nav-notes" onclick="setView('notes')">
+        <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Minhas Notas
+        <span class="badge" id="notes-count">0</span>
+      </button>
+    </div>
+
+    <div class="notes-section" id="sidebar-notes">
+      <div class="notes-label">Notas recentes</div>
+      <div id="sidebar-notes-list"></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="new-note-btn" onclick="createNote()">
+        <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova nota
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <button class="topbar-tog" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title" id="topbar-title">Chat com IA</span>
+      <span class="topbar-pill" id="topbar-pill">Hugging Face · Grátis</span>
+    </div>
+
+    <!-- CHAT VIEW -->
+    <div class="view active" id="view-chat">
+      <div class="chat-messages" id="chatArea">
+        <div class="chat-welcome" id="chat-welcome">
+          <div class="greet" id="welcome-greet">Olá! 👋</div>
+          <p class="sub">Sou sua IA assistente. Posso responder perguntas, ajudar com textos e código, e você pode salvar qualquer resposta como nota!</p>
+          <div class="chips">
+            <button class="chip" onclick="sendSuggestion('Qual é a capital do Brasil?')">🌎 Capital do Brasil</button>
+            <button class="chip" onclick="sendSuggestion('Explique inteligência artificial em 3 linhas')">🤖 O que é IA?</button>
+            <button class="chip" onclick="sendSuggestion('Escreva um poema curto sobre o oceano')">✦ Escreva um poema</button>
+            <button class="chip" onclick="sendSuggestion('Dê-me 5 dicas de produtividade')">⚡ Dicas produtivas</button>
+            <button class="chip" onclick="sendSuggestion('Quanto é a raiz quadrada de 144?')">🔢 Cálculo rápido</button>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <textarea id="chatInput" placeholder="Escreva uma mensagem…" rows="1"></textarea>
+          <button class="send-btn" id="send-btn" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <p class="input-hint">Enter para enviar · Shift+Enter para nova linha</p>
+      </div>
+    </div>
+
+    <!-- NOTES VIEW -->
+    <div class="view" id="view-notes">
+      <div class="notes-view" id="notes-view-inner">
+
+        <!-- left col -->
+        <div class="notes-list-col">
+          <div class="notes-list-head">
+            <h3>Notas</h3>
+            <button class="icon-btn" onclick="createNote()" title="Nova nota">
+              <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+          </div>
+          <div class="notes-scroll" id="notes-list-main"></div>
+        </div>
+
+        <!-- right editor -->
+        <div class="note-editor" id="note-editor" style="display:none">
+          <div class="note-editor-head">
+            <input class="note-title-input" id="note-title" placeholder="Título da nota…" oninput="noteChanged()"/>
+            <button class="note-del-btn" onclick="deleteCurrentNote()">
+              <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              Excluir
+            </button>
+          </div>
+          <div class="note-tags">
+            <div id="tags-container"></div>
+            <input class="add-tag" id="tag-input" placeholder="+ Tag" onkeydown="handleTagInput(event)" style="width:60px"/>
+          </div>
+          <div class="note-body">
+            <textarea class="note-content-area" id="note-content" placeholder="Comece a escrever…" oninput="noteChanged()"></textarea>
+          </div>
+          <div class="note-footer">
+            <span class="note-meta-info" id="note-meta">—</span>
+            <span class="auto-save-ind" id="auto-save">Salvo</span>
+          </div>
+        </div>
+
+        <div class="no-note-selected" id="no-note-msg">
+          <div>
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Selecione ou crie uma nota
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toast-msg">Feito!</span>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+const db = {
+  users: JSON.parse(localStorage.getItem('nx_users') || '[]'),
+  session: null,
+  notes: [],
+  currentNote: null,
+};
+const save = () => localStorage.setItem('nx_users', JSON.stringify(db.users));
+
+function getUserData() {
+  if (!db.session) return null;
+  return db.users.find(u => u.email === db.session.email) || null;
+}
+function loadUserNotes() {
+  const u = getUserData();
+  db.notes = u ? (u.notes || []) : [];
+}
+function saveUserNotes() {
+  const u = getUserData();
+  if (u) { u.notes = db.notes; save(); }
+}
+
+// ═══════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  try {
+    const s = localStorage.getItem('nx_session');
+    if (s) {
+      db.session = JSON.parse(s);
+      const u = getUserData();
+      if (u) { enterApp(u); return; }
+      localStorage.removeItem('nx_session');
+    }
+  } catch(e) {}
+});
+
+function hashPw(p){ return btoa(unescape(encodeURIComponent(p))); }
+const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+function notice(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'notice ' + type;
+  el.textContent = msg;
+}
+function clearNotice(id) {
+  const el = document.getElementById(id);
+  el.className = 'notice'; el.textContent = '';
+}
+
+function switchTab(t) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0)===(t==='signin')));
+  document.getElementById('panel-signin').classList.toggle('active', t==='signin');
+  document.getElementById('panel-signup').classList.toggle('active', t==='signup');
+  clearNotice('signin-notice'); clearNotice('signup-notice');
+}
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.querySelector('svg').innerHTML = show
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+function checkPwStrength(pw) {
+  const bar = document.getElementById('pw-strength');
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
+  if (/\d/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  bar.className = 'strength' + (s ? ' s'+s : '');
+}
+
+function setLoading(id, on, label) {
+  const b = document.getElementById(id);
+  b.disabled = on;
+  b.innerHTML = on ? '<div class="spin"></div>' + label : label;
+}
+
+function doSignIn() {
+  clearNotice('signin-notice');
+  const email = document.getElementById('si-email').value.trim();
+  const pass  = document.getElementById('si-pass').value;
+  if (!email || !pass) { notice('signin-notice','err','Preencha todos os campos.'); return; }
+  if (!isEmail(email)) { notice('signin-notice','err','E-mail inválido.'); return; }
+  setLoading('signin-btn', true, '');
+  setTimeout(() => {
+    setLoading('signin-btn', false, 'Entrar');
+    const u = db.users.find(u => u.email === email);
+    if (!u) { notice('signin-notice','err','E-mail não cadastrado.'); return; }
+    if (u.passHash !== hashPw(pass)) { notice('signin-notice','err','Senha incorreta.'); return; }
+    notice('signin-notice','ok','✓ Bem-vindo(a) de volta, ' + u.firstName + '!');
+    setTimeout(() => enterApp(u), 700);
+  }, 900);
+}
+
+function doSignUp() {
+  clearNotice('signup-notice');
+  const first = document.getElementById('su-first').value.trim();
+  const last  = document.getElementById('su-last').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass  = document.getElementById('su-pass').value;
+  const terms = document.getElementById('su-terms').checked;
+  if (!first||!last||!email||!pass) { notice('signup-notice','err','Preencha todos os campos.'); return; }
+  if (!isEmail(email)) { notice('signup-notice','err','E-mail inválido.'); return; }
+  if (db.users.find(u=>u.email===email)) { notice('signup-notice','err','E-mail já cadastrado.'); return; }
+  if (pass.length < 8) { notice('signup-notice','err','Senha muito curta (mín. 8 caracteres).'); return; }
+  if (!terms) { notice('signup-notice','err','Aceite os termos para continuar.'); return; }
+  setLoading('signup-btn', true, '');
+  setTimeout(() => {
+    setLoading('signup-btn', false, 'Criar conta');
+    const u = { firstName: first, lastName: last, email, passHash: hashPw(pass), notes: [], createdAt: new Date().toISOString() };
+    db.users.push(u); save();
+    notice('signup-notice','ok','✓ Conta criada! Bem-vindo(a), ' + first + '!');
+    setTimeout(() => enterApp(u), 800);
+  }, 1100);
+}
+
+function doReset() {
+  const email = document.getElementById('si-email').value.trim();
+  if (!email || !isEmail(email)) { notice('signin-notice','err','Informe seu e-mail acima para recuperar.'); return; }
+  if (!db.users.find(u=>u.email===email)) { notice('signin-notice','err','E-mail não encontrado.'); return; }
+  notice('signin-notice','ok','✓ Link de recuperação enviado para ' + email);
+}
+
+function enterApp(u) {
+  db.session = { email: u.email };
+  localStorage.setItem('nx_session', JSON.stringify(db.session));
+  loadUserNotes();
+
+  const name = u.firstName + ' ' + u.lastName;
+  document.getElementById('av-init').textContent = u.firstName.charAt(0).toUpperCase();
+  document.getElementById('av-name').textContent = name;
+  document.getElementById('welcome-greet').textContent = 'Olá, ' + u.firstName + '! 👋';
+  updateNotesBadge();
+  renderSidebarNotes();
+
+  document.getElementById('login-screen').classList.add('out');
+  setTimeout(() => {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('in');
+    document.dispatchEvent(new Event('appReady'));
+  }, 400);
+}
+
+function doLogout() {
+  localStorage.removeItem('nx_session');
+  db.session = null; db.notes = []; db.currentNote = null; chatHistory = [];
+  const ls = document.getElementById('login-screen');
+  const app = document.getElementById('app');
+  app.classList.remove('in');
+  ls.style.display = 'flex';
+  setTimeout(() => ls.classList.remove('out'), 30);
+  setView('chat');
+  document.getElementById('chatArea').innerHTML = '';
+  document.getElementById('chat-welcome').style.display = '';
+}
+
+// ═══════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════
+let sidebarOpen = true;
+
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.getElementById('sidebar').classList.toggle('collapsed', !sidebarOpen);
+}
+
+function setView(v) {
+  ['chat','notes'].forEach(n => {
+    document.getElementById('nav-'+n).classList.toggle('active', n===v);
+    document.getElementById('view-'+n).classList.toggle('active', n===v);
+  });
+  document.getElementById('topbar-title').textContent = v === 'chat' ? 'Chat com IA' : 'Minhas Notas';
+  document.getElementById('topbar-pill').textContent = v === 'chat' ? 'Hugging Face · Grátis' : db.notes.length + ' nota' + (db.notes.length !== 1 ? 's' : '');
+  if (v === 'notes') renderNotesList();
+}
+
+// ═══════════════════════════════════════
+// CHAT IA — Google Gemini
+// ═══════════════════════════════════════
+let chatHistory = [];
+let chatLoading = false;
+
+// ── Configuração da API Key ──────────────
+// Cole aqui sua chave do Google AI Studio:
+// https://aistudio.google.com/app/apikey
+let GEMINI_API_KEY = localStorage.getItem('nx_gemini_key') || '';
+
+function getGeminiUrl() {
+  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+}
+
+// ── Input da chave na tela ───────────────
+function renderApiKeyBanner() {
+  const existing = document.getElementById('api-key-banner');
+  if (existing) existing.remove();
+  if (GEMINI_API_KEY) return; // já tem chave, não exibe
+
+  const banner = document.createElement('div');
+  banner.id = 'api-key-banner';
+  banner.style.cssText = `
+    background:var(--cream);border:1.5px solid var(--stone);border-radius:12px;
+    padding:18px 20px;margin:20px 24px 0;
+    display:flex;flex-direction:column;gap:10px;
+  `;
+  banner.innerHTML = `
+    <div style="font-size:.82rem;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Configure sua API Key do Gemini para começar
+    </div>
+    <div style="font-size:.76rem;color:var(--muted);line-height:1.5;">
+      Obtenha sua chave gratuita em
+      <a href="https://aistudio.google.com/app/apikey" target="_blank"
+         style="color:var(--accent);text-decoration:none;font-weight:500;">aistudio.google.com</a>
+      — é grátis, sem cartão de crédito.
+    </div>
+    <div style="display:flex;gap:8px;">
+      <input id="key-input" type="password" placeholder="Cole sua API Key aqui…"
+        style="flex:1;padding:10px 13px;background:var(--paper);border:1.5px solid var(--stone);
+               border-radius:9px;font-family:'Geist',sans-serif;font-size:.85rem;
+               color:var(--ink);outline:none;transition:border-color .2s;"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--stone)'"
+        onkeydown="if(event.key==='Enter')saveApiKey()"/>
+      <button onclick="saveApiKey()"
+        style="padding:10px 18px;background:var(--ink);color:var(--paper);border:none;
+               border-radius:9px;font-family:'Geist',sans-serif;font-size:.82rem;
+               font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s;"
+        onmouseover="this.style.background='var(--accent)'"
+        onmouseout="this.style.background='var(--ink)'">
+        Salvar
+      </button>
+    </div>
+  `;
+  const chatArea = document.getElementById('chatArea');
+  chatArea.insertBefore(banner, chatArea.firstChild);
+}
+
+function saveApiKey() {
+  const val = document.getElementById('key-input')?.value.trim();
+  if (!val) return;
+  GEMINI_API_KEY = val;
+  localStorage.setItem('nx_gemini_key', val);
+  document.getElementById('api-key-banner')?.remove();
+  document.getElementById('topbar-pill').textContent = 'Gemini 1.5 Flash ✓';
+  showToast('✓ Chave salva! Pode começar a conversar.');
+}
+
+function resetApiKey() {
+  GEMINI_API_KEY = '';
+  localStorage.removeItem('nx_gemini_key');
+  renderApiKeyBanner();
+  document.getElementById('topbar-pill').textContent = 'Gemini · Configure a Key';
+}
+
+// ── Inicializa banner quando o app abre ──
+const _origEnterApp = typeof enterApp === 'function' ? enterApp : null;
+document.addEventListener('appReady', () => {
+  renderApiKeyBanner();
+  if (GEMINI_API_KEY)
+    document.getElementById('topbar-pill').textContent = 'Gemini 1.5 Flash ✓';
+  else
+    document.getElementById('topbar-pill').textContent = 'Gemini · Configure a Key';
+});
+
+// ── Chat inputs ──────────────────────────
+const chatInput = document.getElementById('chatInput');
+chatInput.addEventListener('input', () => {
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+});
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+function sendSuggestion(t) { chatInput.value = t; sendMessage(); }
+
+// ── Renderiza mensagens ──────────────────
+function addMsg(role, html, rawText) {
+  document.getElementById('chat-welcome').style.display = 'none';
+  const area = document.getElementById('chatArea');
+
+  if (role === 'ai') {
+    const lbl = document.createElement('span');
+    lbl.className = 'msg-ai-label'; lbl.textContent = 'Nexus IA';
+    area.appendChild(lbl);
+  }
+
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + role;
+  const bub = document.createElement('div');
+  bub.className = 'msg-bubble';
+  bub.innerHTML = html;
+
+  if (role === 'ai' && rawText) {
+    const sBtn = document.createElement('button');
+    sBtn.className = 'save-btn';
+    sBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar como nota';
+    sBtn.onclick = () => saveResponseAsNote(rawText);
+    bub.appendChild(sBtn);
+  }
+
+  row.appendChild(bub);
+  area.appendChild(row);
+  area.scrollTo({ top: area.scrollHeight, behavior: 'smooth' });
+}
+
+function showTyping() {
+  const area = document.getElementById('chatArea');
+  const lbl = document.createElement('span'); lbl.className = 'msg-ai-label'; lbl.textContent = 'Nexus IA';
+  area.appendChild(lbl);
+  const row = document.createElement('div'); row.className = 'msg-row ai'; row.id = 'typing-row';
+  const bub = document.createElement('div'); bub.className = 'msg-bubble';
+  bub.innerHTML = '<div class="typing-ind"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+  row.appendChild(bub); area.appendChild(row);
+  area.scrollTo({ top: area.scrollHeight, behavior: 'smooth' });
+}
+function hideTyping() { const t = document.getElementById('typing-row'); if (t) { t.previousSibling?.remove(); t.remove(); } }
+
+// ── Formata markdown simples ─────────────
+function fmtText(text) {
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_,l,c) => `<pre><code>${esc(c.trim())}</code></pre>`);
+  text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\n/g, '<br>');
+  return text;
+}
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Monta payload para o Gemini ──────────
+function buildGeminiPayload(msg) {
+  let name = 'usuário';
+  try { const u = getUserData(); if (u?.firstName) name = u.firstName; } catch(e){}
+
+  const systemInstruction = `Você é o Nexus, um assistente de IA inteligente e amigável. Responda SEMPRE em português do Brasil de forma clara e objetiva. O usuário se chama ${name}. Para perguntas simples, seja direto e conciso. Use blocos de código com crases triplas quando relevante.`;
+
+  // Histórico: últimos 6 turnos, alternando user/model
+  const contents = chatHistory.slice(-6).map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.content }]
+  }));
+
+  // Mensagem atual
+  contents.push({ role: 'user', parts: [{ text: msg }] });
+
+  return {
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    contents,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 1024,
+      topP: 0.95
+    }
+  };
+}
+
+// ── Chama a API do Gemini ────────────────
+async function callAI(msg) {
+  if (!GEMINI_API_KEY) {
+    renderApiKeyBanner();
+    throw new Error('Configure sua API Key do Gemini primeiro (veja o banner acima).');
+  }
+
+  const res = await fetch(getGeminiUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildGeminiPayload(msg))
+  });
+
+  if (!res.ok) {
+    let errMsg = `Erro ${res.status}`;
+    try {
+      const j = await res.json();
+      errMsg = j.error?.message || errMsg;
+      if (res.status === 400 && errMsg.toLowerCase().includes('api key')) {
+        errMsg = 'API Key inválida. Verifique a chave e tente novamente.';
+        resetApiKey();
+      }
+    } catch(_) {}
+    throw new Error(errMsg);
+  }
+
+  const data = await res.json();
+  if (!data.candidates?.length) throw new Error('Resposta vazia da API do Gemini.');
+
+  const text = data.candidates[0].content.parts[0].text?.trim();
+  if (!text) throw new Error('Resposta vazia. Tente novamente.');
+  return text;
+}
+
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text || chatLoading) return;
+  chatLoading = true;
+  document.getElementById('send-btn').disabled = true;
+  chatInput.value = ''; chatInput.style.height = 'auto';
+  addMsg('user', fmtText(text));
+  showTyping();
+  try {
+    const reply = await callAI(text);
+    hideTyping();
+    chatHistory.push({ role:'user', content:text });
+    chatHistory.push({ role:'assistant', content:reply });
+    addMsg('ai', fmtText(reply), reply);
+  } catch(err) {
+    hideTyping();
+    addMsg('ai', `<div class="err-msg">⚠️ ${err.message}</div>`);
+  }
+  chatLoading = false;
+  document.getElementById('send-btn').disabled = false;
+  chatInput.focus();
+}
+
+// ═══════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════
+let saveTimer = null;
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function createNote(prefill) {
+  const note = {
+    id: genId(),
+    title: prefill ? prefill.title : '',
+    content: prefill ? prefill.content : '',
+    tags: prefill ? (prefill.tags || []) : [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  db.notes.unshift(note);
+  saveUserNotes();
+  updateNotesBadge();
+  renderSidebarNotes();
+  setView('notes');
+  renderNotesList();
+  openNote(note.id);
+  if (!prefill) document.getElementById('note-title').focus();
+}
+
+function openNote(id) {
+  db.currentNote = id;
+  const note = db.notes.find(n => n.id === id);
+  if (!note) return;
+
+  document.getElementById('note-editor').style.display = 'flex';
+  document.getElementById('note-editor').style.flexDirection = 'column';
+  document.getElementById('no-note-msg').style.display = 'none';
+  document.getElementById('notes-view-inner').classList.add('note-open');
+
+  document.getElementById('note-title').value = note.title;
+  document.getElementById('note-content').value = note.content;
+  document.getElementById('note-meta').textContent = 'Criada em ' + fmtDate(note.createdAt);
+  renderTags(note.tags);
+  document.getElementById('auto-save').classList.remove('show');
+
+  document.querySelectorAll('.note-card').forEach(c => c.classList.toggle('active', c.dataset.id === id));
+}
+
+function renderNotesList() {
+  const cont = document.getElementById('notes-list-main');
+  if (!db.notes.length) {
+    cont.innerHTML = '<div class="empty-notes"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Nenhuma nota ainda.<br>Crie uma nova!</div>';
+    return;
+  }
+  cont.innerHTML = db.notes.map(n => `
+    <div class="note-card ${db.currentNote===n.id?'active':''}" data-id="${n.id}" onclick="openNote('${n.id}')">
+      <div class="nc-title">${n.title || 'Sem título'}</div>
+      <div class="nc-preview">${n.content || 'Nota em branco…'}</div>
+      <div class="nc-date">${fmtDate(n.updatedAt)}</div>
+    </div>`).join('');
+}
+
+function renderSidebarNotes() {
+  const cont = document.getElementById('sidebar-notes-list');
+  const recent = db.notes.slice(0,5);
+  cont.innerHTML = recent.length
+    ? recent.map(n => `<div class="note-item" onclick="setView('notes');renderNotesList();openNote('${n.id}')">
+        <div class="note-title">${n.title || 'Sem título'}</div>
+        <div class="note-meta">${fmtDate(n.updatedAt)}</div>
+      </div>`).join('')
+    : '<div style="padding:8px 10px;font-size:.75rem;color:var(--muted)">Nenhuma nota ainda</div>';
+}
+
+function updateNotesBadge() {
+  document.getElementById('notes-count').textContent = db.notes.length;
+  const pill = document.getElementById('topbar-pill');
+  if (document.getElementById('view-notes').classList.contains('active'))
+    pill.textContent = db.notes.length + ' nota' + (db.notes.length !== 1 ? 's' : '');
+}
+
+function renderTags(tags) {
+  const cont = document.getElementById('tags-container');
+  cont.innerHTML = (tags || []).map(t =>
+    `<span class="note-tag">${t}<span class="rm" onclick="removeTag('${t}')">×</span></span>`
+  ).join('');
+}
+
+function removeTag(tag) {
+  const note = db.notes.find(n => n.id === db.currentNote);
+  if (!note) return;
+  note.tags = (note.tags || []).filter(t => t !== tag);
+  renderTags(note.tags);
+  triggerAutoSave();
+}
+
+function handleTagInput(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,$/,'');
+    if (!val) return;
+    const note = db.notes.find(n => n.id === db.currentNote);
+    if (!note) return;
+    note.tags = note.tags || [];
+    if (!note.tags.includes(val)) note.tags.push(val);
+    renderTags(note.tags);
+    e.target.value = '';
+    triggerAutoSave();
+  }
+}
+
+function noteChanged() {
+  const note = db.notes.find(n => n.id === db.currentNote);
+  if (!note) return;
+  note.title = document.getElementById('note-title').value;
+  note.content = document.getElementById('note-content').value;
+  triggerAutoSave();
+}
+
+function triggerAutoSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const note = db.notes.find(n => n.id === db.currentNote);
+    if (note) {
+      note.updatedAt = new Date().toISOString();
+      saveUserNotes();
+      renderSidebarNotes();
+      updateNotesBadge();
+      // refresh list without losing focus
+      renderNotesList();
+      document.getElementById('auto-save').classList.add('show');
+      setTimeout(() => document.getElementById('auto-save').classList.remove('show'), 2000);
+    }
+  }, 800);
+}
+
+function deleteCurrentNote() {
+  if (!db.currentNote) return;
+  const idx = db.notes.findIndex(n => n.id === db.currentNote);
+  if (idx < 0) return;
+  db.notes.splice(idx, 1);
+  db.currentNote = null;
+  saveUserNotes();
+  updateNotesBadge();
+  renderSidebarNotes();
+  renderNotesList();
+  document.getElementById('note-editor').style.display = 'none';
+  document.getElementById('no-note-msg').style.display = '';
+  showToast('Nota excluída.');
+}
+
+function saveResponseAsNote(text) {
+  const lines = text.split('\n').filter(Boolean);
+  const title = lines[0].slice(0,60) || 'Nota da IA';
+  createNote({ title, content: text, tags: ['IA', 'chat'] });
+  showToast('✓ Salvo como nota!');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
